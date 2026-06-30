@@ -87,7 +87,10 @@ Elk header-veld is een `Field<T> = { value, confidence (0-1), source }` met
 - Directe **boekhoudkoppeling** (Exact Online / Twinfield / e-Boekhouden) i.p.v. alleen export.
 - **Opslag/historie** (database) + zoeken/overzicht.
 - **Login/authenticatie**.
-- **OCR** voor gescande PDF's zonder tekstlaag (loopt via de Claude-laag).
+- **OCR** voor gescande PDF's zonder tekstlaag. LET OP: dit werkt nu nog NIET —
+  een scan zonder tekstlaag krijgt `status:"error"` en de Claude-laag krijgt alleen
+  tekst (geen afbeelding), dus die wordt overgeslagen. Echte OCR vereist dat we de
+  PDF-bytes als document/afbeelding naar Claude sturen.
 - Losse **regels-CSV** export en betere regel-/BTW-uitsplitsing-herkenning in PDF's.
 - Tests (Vitest) voor `util.ts`, `extract/xml.ts` en `heuristics.ts`.
 

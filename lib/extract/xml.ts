@@ -232,7 +232,10 @@ interface Leaf {
 function collectLeaves(node: unknown, path: string, out: Leaf[], depth = 0) {
   if (depth > 30 || out.length > 5000) return;
   if (node == null) return;
-  if (typeof node === "object") {
+  // Arrays zijn ook objecten — eerst testen, anders draait deze tak nooit.
+  if (Array.isArray(node)) {
+    (node as unknown[]).forEach((v) => collectLeaves(v, path, out, depth + 1));
+  } else if (typeof node === "object") {
     for (const [k, v] of Object.entries(node as Record<string, unknown>)) {
       if (k.startsWith("@_")) {
         if (typeof v === "string") out.push({ path, key: k.slice(2), value: v });
@@ -240,8 +243,6 @@ function collectLeaves(node: unknown, path: string, out: Leaf[], depth = 0) {
       }
       collectLeaves(v, path ? `${path}.${k}` : k, out, depth + 1);
     }
-  } else if (Array.isArray(node)) {
-    (node as unknown[]).forEach((v) => collectLeaves(v, path, out, depth + 1));
   } else {
     const key = path.split(".").pop() ?? path;
     out.push({ path, key, value: String(node) });

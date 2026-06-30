@@ -59,7 +59,8 @@ export function normalizeDate(raw: string | null | undefined): string | null {
   // dd-mm-yyyy / dd/mm/yyyy / dd.mm.yyyy
   const dmy = s.match(/\b(\d{1,2})[-/.](\d{1,2})[-/.](\d{2,4})\b/);
   if (dmy && inRange(Number(dmy[2]), Number(dmy[1]))) {
-    let [, d, m, y] = dmy;
+    const [, d, m] = dmy;
+    let y = dmy[3];
     if (y.length === 2) y = (Number(y) > 70 ? "19" : "20") + y;
     return `${y}-${m.padStart(2, "0")}-${d.padStart(2, "0")}`;
   }

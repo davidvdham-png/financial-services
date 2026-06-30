@@ -6,6 +6,9 @@ import { Invoice } from "../types";
 function esc(v: string | null | undefined): string {
   if (v == null) return "";
   return String(v)
+    // XML 1.0 verbiedt de meeste controlekarakters (behalve tab/LF/CR) — strip ze
+    // zodat de export altijd welgevormd blijft.
+    .replace(/[\x00-\x08\x0B\x0C\x0E-\x1F]/g, "")
     .replace(/&/g, "&amp;")
     .replace(/</g, "&lt;")
     .replace(/>/g, "&gt;")

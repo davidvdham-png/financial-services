@@ -47,8 +47,9 @@ Status: ✅ = opgelost in deze branch · ⬜ = open.
 - ✅ **OCR-claim** in CLAUDE.md gecorrigeerd (er gebeurt geen OCR via de Claude-laag).
 - ✅ **A11y UploadZone**: `role="button"`, `tabIndex`, Enter/Space, `aria-label`;
   decoratieve emoji's `aria-hidden`.
-- ✅ **`claude.ts` stille `catch`**: fout wordt server-side gelogd; default-model
-  gepind op dated snapshot.
+- ✅ **`claude.ts` stille `catch`**: fout wordt server-side gelogd (geen stille
+  mislukking meer). NB: de default-model `claude-opus-4-8` is bewust NIET van een
+  datum-suffix voorzien — dat is de complete, correcte model-id (een suffix zou 404'en).
 - ✅ **`normalizeDate`** maand/dag-bereikvalidatie (1-12 / 1-31).
 - ✅ **`collectLeaves`** array-check vóór object.
 - ✅ **`csv.ts`** losse `\r` nu ook ge-quote.
