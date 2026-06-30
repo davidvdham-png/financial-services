@@ -75,6 +75,15 @@ export function field<T>(
   return { value, confidence, source };
 }
 
+/**
+ * Leid de status af van of de kernvelden (factuurnummer, -datum, totaalbedrag)
+ * herkend zijn. Voorkomt dat een lege extractie als "ok" wordt gemarkeerd.
+ */
+export function deriveStatus(inv: Invoice): InvoiceStatus {
+  const core = [inv.invoiceNumber.value, inv.invoiceDate.value, inv.totalGross.value];
+  return core.every((v) => v != null) ? "ok" : "partial";
+}
+
 export function emptyParty(): Party {
   return {
     name: field<string>(null),

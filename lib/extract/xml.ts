@@ -8,6 +8,7 @@ import {
   VatBreakdownItem,
   emptyInvoice,
   field,
+  deriveStatus,
 } from "../types";
 import { parseAmount, normalizeDate } from "../util";
 
@@ -161,6 +162,7 @@ function mapUbl(
   out.totalVat = field(totalVat, C, "xml");
   out.vatBreakdown = breakdown;
 
+  out.status = deriveStatus(out); // M2
   return out;
 }
 
@@ -205,7 +207,6 @@ function mapCii(
   // CII is diep genest; we doen een gerichte best-effort en vullen aan met generiek.
   const out = mapGeneric(root, { ...base }, raw);
   out.detectedFormat = "cii";
-  out.status = "ok";
 
   const doc = (root.ExchangedDocument ?? {}) as Record<string, unknown>;
   if (text(doc.ID)) out.invoiceNumber = field(text(doc.ID), 0.95, "xml");
@@ -216,6 +217,7 @@ function mapCii(
     const m = issueStr.match(/(\d{4})(\d{2})(\d{2})/);
     out.invoiceDate = field(m ? `${m[1]}-${m[2]}-${m[3]}` : normalizeDate(issueStr), 0.95, "xml");
   }
+  out.status = deriveStatus(out); // M2
   return out;
 }
 

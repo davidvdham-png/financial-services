@@ -1,6 +1,6 @@
 // Regex/heuristische herkenning van velden uit platte PDF-tekst.
 
-import { Invoice, InvoiceLine, emptyInvoice, field } from "../types";
+import { Invoice, InvoiceLine, emptyInvoice, field, deriveStatus } from "../types";
 import { parseAmount, normalizeDate, isValidIban } from "../util";
 
 function firstMatch(text: string, patterns: RegExp[]): string | null {
@@ -148,6 +148,8 @@ export function extractFromText(text: string, base: Partial<Invoice>): Invoice {
   // Eenvoudige regelherkenning: regels met omschrijving + bedrag(en).
   out.lines = extractLines(text);
 
+  // Status pas hier bepalen: "ok" alleen als de kernvelden herkend zijn. (M2)
+  out.status = deriveStatus(out);
   return out;
 }
 

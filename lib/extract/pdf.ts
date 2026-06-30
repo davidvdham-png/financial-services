@@ -81,12 +81,15 @@ export async function extractPdf(bytes: Uint8Array, base: Partial<Invoice>): Pro
     });
   }
 
-  // 1) Factur-X/ZUGFeRD: ingebedde XML heeft voorrang (exact).
+  // 1) Factur-X/ZUGFeRD: ingebedde XML heeft voorrang (exact). Maar als die XML
+  //    onparsebaar/leeg blijkt, vallen we alsnog terug op de tekstlaag. (M1)
   const embedded = await findEmbeddedXml(doc);
   if (embedded) {
     const inv = extractXml(embedded, { ...base, fileType: "pdf" });
-    inv.detectedFormat = "facturx";
-    return inv;
+    if (inv.status !== "error") {
+      inv.detectedFormat = "facturx";
+      return inv;
+    }
   }
 
   // 2) Tekstlaag uitlezen (met behoud van regelstructuur) en heuristisch herkennen.

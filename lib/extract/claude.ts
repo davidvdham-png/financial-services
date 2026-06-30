@@ -2,7 +2,7 @@
 // Met key: stuurt de PDF-tekst naar Claude en krijgt gestructureerde velden terug,
 // die de heuristiek-resultaten verrijken/overschrijven (hoogste confidence wint).
 
-import { Invoice, field } from "../types";
+import { Invoice, Field, field } from "../types";
 import { parseAmount, normalizeDate } from "../util";
 
 export function isClaudeEnabled(): boolean {
@@ -74,9 +74,12 @@ export async function enrichWithClaude(inv: Invoice): Promise<Invoice> {
     const block = msg.content.find((b) => b.type === "tool_use");
     if (!block || block.type !== "tool_use") return inv;
     const data = block.input as Record<string, unknown>;
-    return merge(inv, data);
-  } catch {
-    return inv; // netwerkfout/geen credits/etc. — val terug op heuristiek
+    return mergeClaudeFields(inv, data);
+  } catch (e) {
+    // netwerkfout/geen credits/verkeerde model-id/etc. — val terug op heuristiek.
+    // Loggen zodat een stille mis-configuratie (bv. ongeldige ANTHROPIC_MODEL) zichtbaar is.
+    console.error("[claude] verrijking mislukt, val terug op heuristiek:", e);
+    return inv;
   }
 }
 
@@ -86,28 +89,42 @@ function str(v: unknown): string | null {
 
 const LLM_C = 0.85;
 
-function merge(inv: Invoice, d: Record<string, unknown>): Invoice {
-  if (str(d.invoiceNumber)) inv.invoiceNumber = field(str(d.invoiceNumber), LLM_C, "llm");
-  if (str(d.invoiceDate)) inv.invoiceDate = field(normalizeDate(str(d.invoiceDate)), LLM_C, "llm");
-  if (str(d.dueDate)) inv.dueDate = field(normalizeDate(str(d.dueDate)), LLM_C, "llm");
-  if (str(d.poNumber)) inv.poNumber = field(str(d.poNumber), LLM_C, "llm");
-  if (str(d.currency)) inv.currency = field(str(d.currency), LLM_C, "llm");
-  if (str(d.paymentReference)) inv.paymentReference = field(str(d.paymentReference), LLM_C, "llm");
+/**
+ * Kies tussen de bestaande (heuristiek/XML) waarde en de LLM-waarde: de hoogste
+ * confidence wint. Een bestaande waarde met confidence >= de LLM-confidence blijft
+ * staan (zodat bv. een mod-97-gevalideerd IBAN op 0.9 niet wordt overschreven). (H3)
+ */
+function pick<T>(existing: Field<T>, value: T | null): Field<T> {
+  const candidate = field(value, LLM_C, "llm");
+  if (candidate.value == null) return existing; // LLM gaf niets bruikbaars
+  if (existing.value != null && existing.confidence >= LLM_C) return existing;
+  return candidate;
+}
 
-  if (str(d.supplierName)) inv.supplier.name = field(str(d.supplierName), LLM_C, "llm");
-  if (str(d.supplierVatNumber)) inv.supplier.vatNumber = field(str(d.supplierVatNumber), LLM_C, "llm");
-  if (str(d.supplierKvk)) inv.supplier.kvk = field(str(d.supplierKvk), LLM_C, "llm");
-  if (str(d.supplierIban)) inv.supplier.iban = field(str(d.supplierIban), LLM_C, "llm");
-  if (str(d.supplierAddress)) inv.supplier.address = field(str(d.supplierAddress), LLM_C, "llm");
+/** Verrijk een factuur met door Claude herkende velden (hoogste confidence wint). */
+export function mergeClaudeFields(inv: Invoice, d: Record<string, unknown>): Invoice {
+  inv.invoiceNumber = pick(inv.invoiceNumber, str(d.invoiceNumber));
+  inv.invoiceDate = pick(inv.invoiceDate, normalizeDate(str(d.invoiceDate)));
+  inv.dueDate = pick(inv.dueDate, normalizeDate(str(d.dueDate)));
+  inv.poNumber = pick(inv.poNumber, str(d.poNumber));
+  inv.currency = pick(inv.currency, str(d.currency));
+  inv.paymentReference = pick(inv.paymentReference, str(d.paymentReference));
 
-  const sub = parseAmount(d.subtotal as number);
-  const vat = parseAmount(d.totalVat as number);
-  const gross = parseAmount(d.totalGross as number);
-  if (sub != null) inv.subtotal = field(sub, LLM_C, "llm");
-  if (vat != null) inv.totalVat = field(vat, LLM_C, "llm");
-  if (gross != null) inv.totalGross = field(gross, LLM_C, "llm");
+  inv.supplier.name = pick(inv.supplier.name, str(d.supplierName));
+  inv.supplier.vatNumber = pick(inv.supplier.vatNumber, str(d.supplierVatNumber));
+  inv.supplier.kvk = pick(inv.supplier.kvk, str(d.supplierKvk));
+  inv.supplier.iban = pick(inv.supplier.iban, str(d.supplierIban));
+  inv.supplier.address = pick(inv.supplier.address, str(d.supplierAddress));
 
-  if (Array.isArray(d.lines) && d.lines.length && inv.lines.length === 0) {
+  inv.subtotal = pick(inv.subtotal, parseAmount(d.subtotal as number));
+  inv.totalVat = pick(inv.totalVat, parseAmount(d.totalVat as number));
+  inv.totalGross = pick(inv.totalGross, parseAmount(d.totalGross as number));
+
+  // Regels: neem de LLM-regels over als de heuristiek geen regels vond óf als de
+  // heuristische regels zwak zijn (geen enkele met een herkend regeltotaal). (M7)
+  const heuristicWeak =
+    inv.lines.length === 0 || inv.lines.every((l) => l.lineTotal == null);
+  if (Array.isArray(d.lines) && d.lines.length && heuristicWeak) {
     inv.lines = (d.lines as Record<string, unknown>[]).map((l) => ({
       description: str(l.description) ?? "",
       quantity: parseAmount(l.quantity as number),
