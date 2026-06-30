@@ -11,8 +11,9 @@ export function parseAmount(raw: string | number | null | undefined): number | n
   let s = String(raw).trim();
   if (!s) return null;
 
-  // Houd minteken, cijfers en scheidingstekens over.
-  const negative = /^-|-$|\(/.test(s);
+  // Negatief: haakjes, een minteken vóór het eerste cijfer (ook na valutasymbool/spatie),
+  // of een trailing minteken. (M5)
+  const negative = /\(/.test(s) || /-\s*[\d.,]/.test(s) || /[\d.,]\s*-\s*$/.test(s);
   s = s.replace(/[^\d.,]/g, "");
   if (!s) return null;
 
@@ -30,8 +31,13 @@ export function parseAmount(raw: string | number | null | undefined): number | n
     // Alleen komma's: decimaal als er 1-2 cijfers achter staan, anders duizendtal.
     const decimals = s.length - lastComma - 1;
     s = decimals <= 2 ? s.replace(",", ".") : s.replace(/,/g, "");
+  } else if (lastDot !== -1) {
+    // Alleen punten. Meerdere punten = duizendtalscheiding; één punt met exact 3
+    // cijfers erachter ook (NL-notatie zoals "1.234"). Anders is de punt decimaal. (H1)
+    const dotCount = (s.match(/\./g) ?? []).length;
+    const decimals = s.length - lastDot - 1;
+    if (dotCount > 1 || decimals === 3) s = s.replace(/\./g, "");
   }
-  // Alleen punten: laat staan (al EN-notatie).
 
   const n = parseFloat(s);
   if (!isFinite(n)) return null;
@@ -43,13 +49,16 @@ export function normalizeDate(raw: string | null | undefined): string | null {
   if (!raw) return null;
   const s = String(raw).trim();
 
+  // Maand 1-12 en dag 1-31 als minimale geldigheidscheck.
+  const inRange = (m: number, d: number) => m >= 1 && m <= 12 && d >= 1 && d <= 31;
+
   // Al ISO?
   const iso = s.match(/\b(\d{4})-(\d{2})-(\d{2})\b/);
-  if (iso) return `${iso[1]}-${iso[2]}-${iso[3]}`;
+  if (iso && inRange(Number(iso[2]), Number(iso[3]))) return `${iso[1]}-${iso[2]}-${iso[3]}`;
 
   // dd-mm-yyyy / dd/mm/yyyy / dd.mm.yyyy
   const dmy = s.match(/\b(\d{1,2})[-/.](\d{1,2})[-/.](\d{2,4})\b/);
-  if (dmy) {
+  if (dmy && inRange(Number(dmy[2]), Number(dmy[1]))) {
     let [, d, m, y] = dmy;
     if (y.length === 2) y = (Number(y) > 70 ? "19" : "20") + y;
     return `${y}-${m.padStart(2, "0")}-${d.padStart(2, "0")}`;

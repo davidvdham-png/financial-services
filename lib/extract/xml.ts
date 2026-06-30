@@ -36,6 +36,15 @@ function asArray<T>(v: T | T[] | undefined): T[] {
   return Array.isArray(v) ? v : [v];
 }
 
+/** Lees een attribuut (bv. currencyID) van een UBL-knoop. */
+function attr(node: unknown, name: string): string | null {
+  if (node && typeof node === "object") {
+    const v = (node as Record<string, unknown>)["@_" + name];
+    return v == null ? null : String(v);
+  }
+  return null;
+}
+
 export function extractXml(xmlString: string, base: Partial<Invoice>): Invoice {
   let parsed: Record<string, unknown>;
   try {
@@ -68,9 +77,11 @@ function mapUbl(
 ): Invoice {
   const out = emptyInvoice({ ...base, detectedFormat: "ubl", status: "ok", rawText: raw });
   const C = 0.98;
+  // Pad-getter die ook door arrays heen leest (eerste element van een herhaalde knoop).
   const get = (path: string): unknown =>
     path.split(".").reduce<unknown>((acc, key) => {
-      if (acc && typeof acc === "object") return (acc as Record<string, unknown>)[key];
+      const node = Array.isArray(acc) ? acc[0] : acc;
+      if (node && typeof node === "object") return (node as Record<string, unknown>)[key];
       return undefined;
     }, inv);
 
@@ -79,7 +90,6 @@ function mapUbl(
   out.dueDate = field(normalizeDate(text(inv.DueDate)), C, "xml");
   out.currency = field(text(inv.DocumentCurrencyCode), C, "xml");
   out.poNumber = field(text(get("OrderReference.ID")), C, "xml");
-  out.paymentReference = field(text(get("PaymentMeans.PaymentID")), C, "xml");
 
   // Partijen
   const supplier = get("AccountingSupplierParty.Party") as Record<string, unknown> | undefined;
@@ -87,9 +97,19 @@ function mapUbl(
   fillUblParty(out.supplier, supplier, C);
   fillUblParty(out.customer, customer, C);
 
-  // IBAN via PaymentMeans
-  const iban = text(get("PaymentMeans.PayeeFinancialAccount.ID"));
-  if (iban) out.supplier.iban = field(iban, C, "xml");
+  // PaymentMeans kan herhaald voorkomen (UBL); doorloop alle voor IBAN + kenmerk. (M4)
+  for (const pm of asArray(inv.PaymentMeans)) {
+    const means = pm as Record<string, unknown>;
+    if (!out.paymentReference.value) {
+      const pid = text(means.PaymentID);
+      if (pid) out.paymentReference = field(pid, C, "xml");
+    }
+    if (!out.supplier.iban.value) {
+      const acc = means.PayeeFinancialAccount as Record<string, unknown> | undefined;
+      const iban = text(acc?.ID);
+      if (iban) out.supplier.iban = field(iban, C, "xml");
+    }
+  }
 
   // Regels
   const lines = asArray(inv.InvoiceLine ?? inv.CreditNoteLine);
@@ -116,12 +136,16 @@ function mapUbl(
     "xml",
   );
 
-  // BTW
+  // BTW — UBL staat een tweede TaxTotal in de tax-accounting-valuta toe; die mag
+  // niet meetellen. Som alleen de TaxTotal in de documentvaluta. (M3)
+  const docCurrency = text(inv.DocumentCurrencyCode);
   const taxTotals = asArray(inv.TaxTotal);
   let totalVat: number | null = null;
   const breakdown: VatBreakdownItem[] = [];
   for (const tt of taxTotals) {
     const t = tt as Record<string, unknown>;
+    const taxCur = attr(t.TaxAmount, "currencyID");
+    if (docCurrency && taxCur && taxCur !== docCurrency) continue;
     const amt = parseAmount(text(t.TaxAmount));
     if (amt != null) totalVat = (totalVat ?? 0) + amt;
     for (const sub of asArray(t.TaxSubtotal)) {

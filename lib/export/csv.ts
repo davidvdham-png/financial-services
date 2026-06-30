@@ -19,8 +19,12 @@ const COLUMNS: { key: string; label: string; get: (i: Invoice) => string | numbe
 
 function escape(v: string | number | null): string {
   if (v == null) return "";
-  const s = String(v);
-  return /[",\n;]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+  let s = String(v);
+  // Formule-injectie neutraliseren: Excel/Sheets voeren een cel die met = + - @ (of
+  // tab/CR) begint uit als formule. Alleen tekstwaarden prefixen — numerieke kolommen
+  // (bv. een negatief totaal) blijven zo intact.
+  if (typeof v === "string" && /^[=+\-@\t\r]/.test(s)) s = "'" + s;
+  return /[",\n\r;]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
 }
 
 export function exportCsv(invoices: Invoice[]): string {
