@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import Link from "next/link";
 import { Invoice } from "@/lib/types";
 import { validateInvoice } from "@/lib/validate";
 import { exportCsv } from "@/lib/export/csv";
@@ -73,14 +74,22 @@ export default function Home() {
             Upload PDF of XML — velden worden automatisch herkend, controleer en exporteer.
           </p>
         </div>
-        <span
-          className={`rounded-full px-3 py-1 text-xs font-medium ${
-            claudeEnabled ? "bg-emerald-100 text-emerald-700" : "bg-slate-100 text-slate-500"
-          }`}
-          title={claudeEnabled ? "Claude-herkenning actief" : "Lokale herkenning (zet ANTHROPIC_API_KEY voor AI-laag)"}
-        >
-          {claudeEnabled ? "AI-herkenning aan" : "Lokale herkenning"}
-        </span>
+        <div className="flex items-center gap-3">
+          <Link
+            href="/designs"
+            className="rounded-full border border-slate-200 px-3 py-1 text-xs font-medium text-slate-500 transition hover:border-slate-300 hover:text-slate-700"
+          >
+            Design-gallery →
+          </Link>
+          <span
+            className={`rounded-full px-3 py-1 text-xs font-medium ${
+              claudeEnabled ? "bg-emerald-100 text-emerald-700" : "bg-slate-100 text-slate-500"
+            }`}
+            title={claudeEnabled ? "Claude-herkenning actief" : "Lokale herkenning (zet ANTHROPIC_API_KEY voor AI-laag)"}
+          >
+            {claudeEnabled ? "AI-herkenning aan" : "Lokale herkenning"}
+          </span>
+        </div>
       </header>
 
       <UploadZone onFiles={handleFiles} busy={busy} />
