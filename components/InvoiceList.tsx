@@ -50,7 +50,9 @@ export default function InvoiceList({ invoices, selectedId, onSelect, issuesById
                 </span>
               </div>
               {issues > 0 && (
-                <span className="pl-4 text-[11px] text-amber-600">⚠ {issues} aandachtspunt(en)</span>
+                <span className="pl-4 text-[11px] text-amber-600">
+                  <span aria-hidden="true">⚠</span> {issues} aandachtspunt(en)
+                </span>
               )}
             </button>
           </li>

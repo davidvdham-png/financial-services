@@ -36,7 +36,7 @@ export default function Home() {
         throw new Error(d.error || "Verwerken mislukt");
       }
       const data = await res.json();
-      const incoming: Invoice[] = data.invoices;
+      const incoming: Invoice[] = Array.isArray(data.invoices) ? data.invoices : [];
       setClaudeEnabled(Boolean(data.claudeEnabled));
       setInvoices((prev) => [...prev, ...incoming]);
       if (incoming.length) setSelectedId((cur) => cur ?? incoming[0].id);

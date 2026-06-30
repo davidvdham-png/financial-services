@@ -27,7 +27,16 @@ interface Props {
 }
 
 export default function FieldInput({ label, field, type = "text", onChange, invalid }: Props) {
-  const value = field.value ?? "";
+  const value = String(field.value ?? "");
+
+  // Bedragvelden: tekstinvoer met decimaal-toetsenbord zodat NL-notatie ("1.234,56")
+  // niet door de browser wordt geweigerd; parseAmount normaliseert bij opslaan.
+  // Datumvelden: alleen een echte date-picker als de waarde al ISO is — anders zou
+  // een niet-ISO waarde leeg lijken; val dan terug op tekst. (M6)
+  const isoOk = value === "" || /^\d{4}-\d{2}-\d{2}$/.test(value);
+  const inputType = type === "number" ? "text" : type === "date" ? (isoOk ? "date" : "text") : "text";
+  const inputMode = type === "number" ? "decimal" : undefined;
+
   return (
     <label className="flex flex-col gap-1 text-sm">
       <span className="flex items-center justify-between text-xs font-medium text-slate-500">
@@ -40,8 +49,9 @@ export default function FieldInput({ label, field, type = "text", onChange, inva
         </span>
       </span>
       <input
-        type={type}
-        value={value as string | number}
+        type={inputType}
+        inputMode={inputMode}
+        value={value}
         onChange={(e) => onChange(e.target.value)}
         className={`rounded-md border px-2.5 py-1.5 text-sm outline-none transition focus:ring-2 focus:ring-blue-200 ${
           invalid ? "border-red-400 bg-red-50" : confidenceColor(field.source, field.confidence)

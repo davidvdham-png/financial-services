@@ -80,7 +80,7 @@ export default function InvoiceDetail({ invoice, onChange }: Props) {
         <ul className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs text-amber-800">
           {issues.map((i, n) => (
             <li key={n}>
-              {i.severity === "error" ? "⛔" : "⚠"} {i.message}
+              <span aria-hidden="true">{i.severity === "error" ? "⛔" : "⚠"}</span> {i.message}
             </li>
           ))}
         </ul>

@@ -9,7 +9,10 @@ interface Props {
 
 export default function UploadZone({ onFiles, busy }: Props) {
   const inputRef = useRef<HTMLInputElement>(null);
-  const [dragging, setDragging] = useState(false);
+  // Teller i.p.v. boolean: dragenter/leave vuren ook op kind-elementen, een teller
+  // voorkomt het knipperen van de highlight tijdens het slepen.
+  const [dragDepth, setDragDepth] = useState(0);
+  const dragging = dragDepth > 0;
 
   function handleFiles(list: FileList | null) {
     if (!list) return;
@@ -19,20 +22,35 @@ export default function UploadZone({ onFiles, busy }: Props) {
     if (files.length) onFiles(files);
   }
 
+  function open() {
+    inputRef.current?.click();
+  }
+
   return (
     <div
-      onDragOver={(e) => {
+      role="button"
+      tabIndex={0}
+      aria-label="Upload PDF- of XML-facturen: sleep bestanden hierheen of activeer om te bladeren"
+      aria-busy={busy}
+      onDragEnter={(e) => {
         e.preventDefault();
-        setDragging(true);
+        setDragDepth((d) => d + 1);
       }}
-      onDragLeave={() => setDragging(false)}
+      onDragOver={(e) => e.preventDefault()}
+      onDragLeave={() => setDragDepth((d) => Math.max(0, d - 1))}
       onDrop={(e) => {
         e.preventDefault();
-        setDragging(false);
+        setDragDepth(0);
         handleFiles(e.dataTransfer.files);
       }}
-      onClick={() => inputRef.current?.click()}
-      className={`flex cursor-pointer flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed p-8 text-center transition ${
+      onClick={open}
+      onKeyDown={(e) => {
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          open();
+        }
+      }}
+      className={`flex cursor-pointer flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed p-8 text-center transition focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 ${
         dragging ? "border-blue-500 bg-blue-50" : "border-slate-300 bg-white hover:border-slate-400"
       }`}
     >
@@ -44,7 +62,7 @@ export default function UploadZone({ onFiles, busy }: Props) {
         hidden
         onChange={(e) => handleFiles(e.target.files)}
       />
-      <div className="text-3xl">📄</div>
+      <div className="text-3xl" aria-hidden="true">📄</div>
       <p className="text-sm font-medium text-slate-700">
         {busy ? "Bezig met herkennen…" : "Sleep PDF- of XML-facturen hierheen"}
       </p>
