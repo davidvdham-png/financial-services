@@ -20,6 +20,7 @@ from .pricing import CycleResult
 class Episode:
     """An uninterrupted run of polls where one cycle stayed above threshold."""
 
+    venue: str
     cycle: str
     legs: list[str]
     opened_at: float
@@ -66,6 +67,7 @@ class Episode:
 
 @dataclass
 class ScanStats:
+    venue: str = ""
     polls: int = 0
     evaluations: int = 0
     unpriceable: int = 0
@@ -77,6 +79,7 @@ class ScanStats:
 
     def summary(self) -> dict:
         return {
+            "venue": self.venue,
             "polls": self.polls,
             "cycle_evaluations": self.evaluations,
             "unpriceable": self.unpriceable,
@@ -92,11 +95,14 @@ class EpisodeTracker:
     """Opens an episode when a cycle crosses the threshold, closes it when it
     falls back, and writes closed episodes to a JSONL sink."""
 
-    def __init__(self, threshold_bps: float, sink: TextIO | None = None) -> None:
+    def __init__(
+        self, threshold_bps: float, sink: TextIO | None = None, venue: str = "unknown"
+    ) -> None:
         self.threshold_bps = threshold_bps
         self.sink = sink
+        self.venue = venue
         self.open_episodes: dict[str, Episode] = {}
-        self.stats = ScanStats()
+        self.stats = ScanStats(venue=venue)
 
     def _fingerprint(self, result: CycleResult) -> str:
         return "|".join(f"{leg.side}:{leg.market}" for leg in result.cycle.legs)
@@ -127,6 +133,7 @@ class EpisodeTracker:
             episode = self.open_episodes.get(key)
             if episode is None:
                 episode = Episode(
+                    venue=self.venue,
                     cycle=result.cycle.key,
                     legs=[str(leg) for leg in result.cycle.legs],
                     opened_at=timestamp,

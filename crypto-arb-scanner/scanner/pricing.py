@@ -5,9 +5,9 @@ without touching the network.
 
 Fee model
 ---------
-Bitvavo charges a taker fee per fill. Two conventions matter and they differ
-by less than a basis point, but the scanner exists to measure something that
-*lives* in the sub-basis-point range, so both are implemented:
+Exchanges charge a taker fee per fill. Two conventions matter and they
+differ by less than a basis point, but the scanner exists to measure
+something that *lives* in that range, so both are implemented:
 
   "output"  fee is deducted from whatever you receive on each leg.
             Slightly conservative on buy legs. This is the default.
@@ -20,7 +20,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 
-from .bitvavo import BookTop, Market
+from .types import BookTop, Market
 from .graph import BUY, SELL, Cycle, Leg
 
 FEE_MODEL_OUTPUT = "output"
@@ -37,6 +37,8 @@ class LegQuote:
     input_ratio: float
     # Quote-currency notional traded on this leg per 1 unit of start asset.
     quote_ratio: float
+    # Base-asset quantity traded on this leg per 1 unit of start asset.
+    base_ratio: float
     # Largest input this leg can absorb at top of book, in its from_asset.
     max_input: float
 
@@ -60,8 +62,12 @@ class CycleResult:
 
     @property
     def feasible(self) -> bool:
-        """True when the exchange's minimum order size fits at top of book."""
-        return self.max_start_notional >= self.min_start_notional > 0
+        """True when the exchange's minimum order size fits at top of book.
+
+        A venue that publishes no minimum yields min_start_notional == 0, in
+        which case any non-empty book counts as feasible.
+        """
+        return self.max_start_notional > 0 and self.max_start_notional >= self.min_start_notional
 
     @property
     def profit_at_max(self) -> float:
@@ -95,15 +101,19 @@ def evaluate_cycle(
             return None
         if leg.side == BUY:
             price, size = top.ask, top.ask_size
+            if not price or price <= 0 or not size or size <= 0:
+                return None
             # ask_size is in base; the most quote this leg can absorb.
             max_input = size * price
             quote_ratio = amount
+            base_ratio = amount / price
         else:
             price, size = top.bid, top.bid_size
+            if not price or price <= 0 or not size or size <= 0:
+                return None
             max_input = size
             quote_ratio = amount * price
-        if not price or price <= 0 or not size or size <= 0:
-            return None
+            base_ratio = amount
 
         leg_quotes.append(
             LegQuote(
@@ -111,6 +121,7 @@ def evaluate_cycle(
                 price=price,
                 input_ratio=amount,
                 quote_ratio=quote_ratio,
+                base_ratio=base_ratio,
                 max_input=max_input,
             )
         )
@@ -119,11 +130,16 @@ def evaluate_cycle(
 
     # Constraints expressed in the start asset.
     max_start = min(lq.max_input / lq.input_ratio for lq in leg_quotes)
+    # Venues publish a minimum in the quote asset, the base asset, or both.
     min_start = 0.0
     for lq in leg_quotes:
         market = markets.get(lq.leg.market)
-        if market and market.min_order_in_quote > 0 and lq.quote_ratio > 0:
+        if not market:
+            continue
+        if market.min_order_in_quote > 0 and lq.quote_ratio > 0:
             min_start = max(min_start, market.min_order_in_quote / lq.quote_ratio)
+        if market.min_order_in_base > 0 and lq.base_ratio > 0:
+            min_start = max(min_start, market.min_order_in_base / lq.base_ratio)
 
     return CycleResult(
         cycle=cycle,

@@ -1,7 +1,7 @@
 """Cycle enumeration over a hand-built market list."""
 import unittest
 
-from scanner.bitvavo import Market
+from scanner.types import Market
 from scanner.graph import BUY, SELL, build_edges, find_cycles
 
 

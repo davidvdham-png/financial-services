@@ -1,7 +1,7 @@
 """Cycle arithmetic. No network: every input here is constructed by hand."""
 import unittest
 
-from scanner.bitvavo import BookTop, Market
+from scanner.types import BookTop, Market
 from scanner.graph import BUY, SELL, Cycle, Leg
 from scanner.pricing import (
     FEE_MODEL_OUTPUT,

@@ -3,7 +3,7 @@ import io
 import json
 import unittest
 
-from scanner.bitvavo import BookTop, Market
+from scanner.types import BookTop, Market
 from scanner.graph import BUY, SELL, Cycle, Leg
 from scanner.pricing import evaluate_cycle
 from scanner.tracker import EpisodeTracker

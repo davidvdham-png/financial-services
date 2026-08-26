@@ -13,7 +13,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from .bitvavo import Market
+from .types import Market
 
 BUY = "buy"
 SELL = "sell"
