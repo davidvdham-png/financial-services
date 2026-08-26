@@ -25,6 +25,7 @@ Cowork plugins and Claude Managed Agent templates for financial services. Each n
 │       ├── steering-examples.json
 │       └── README.md                #   security tier + handoff notes
 ├── claude-for-msft-365-install/     # admin tooling for the Microsoft 365 add-in (separate from FSI plugins)
+├── crypto-arb-scanner/              # standalone read-only Bitvavo arbitrage scanner (separate from FSI plugins)
 └── scripts/                         # deploy-managed-agent.sh, check.py, validate.py, orchestrate.py, sync-agent-skills.py
 ```
 
